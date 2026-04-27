@@ -38,7 +38,7 @@ async function initDb() {
 }
 
 // Helper para manejar errores
-function handleError(res, error, message = "Error interno del servidor") {
+function handleError(res, error, message = "Error interno/externo del servidor") {
   console.error(error);
   res.status(500).json({ message });
 }
