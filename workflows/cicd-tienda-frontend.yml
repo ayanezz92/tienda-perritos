@@ -1,4 +1,4 @@
-name: CI/CD Tienda Frontend
+name: CI/CD Tienda Perritos - Frontend
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - 'frontend/**'
 
 jobs:
-  build-and-deploy:
+  build-push-deploy-frontend:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
@@ -30,19 +30,20 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build y Push Dual (ECR + Docker Hub)
+      - name: Build y Push Dual (Hito 1 y 2)
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPO: ${{ secrets.ECR_REPO_URL_FRONTEND }}
-          DH_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
         run: |
           docker build -t tienda-frontend ./frontend
-          # Push a ECR (Hito 2)
+          
+          # AWS ECR [cite: 12]
           docker tag tienda-frontend $ECR_REGISTRY/$ECR_REPO:latest
           docker push $ECR_REGISTRY/$ECR_REPO:latest
-          # Push a Docker Hub (Hito 1 - Décimas)
-          docker tag tienda-frontend $DH_USER/tienda-frontend:latest
-          docker push $DH_USER/tienda-frontend:latest
+          
+          # Docker Hub [cite: 10, 20]
+          docker tag tienda-frontend ayanezz92/tienda-frontend:latest
+          docker push ayanezz92/tienda-frontend:latest
 
       - name: Despliegue en EC2 vía SSM
         run: |

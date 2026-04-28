@@ -1,12 +1,12 @@
-name: CI/CD Tienda DB
+name: CI/CD Tienda Perritos - DB
 
 on:
   push:
     paths:
-      - 'db/**'
+      - 'db/**' # Solo se activa al cambiar archivos en la carpeta db
 
 jobs:
-  build-and-deploy:
+  build-push-deploy-db:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
@@ -20,7 +20,7 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login en Docker Hub
+      - name: Login en Docker Hub (Para Décimas)
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
@@ -30,21 +30,23 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build y Push Dual (ECR + Docker Hub)
+      - name: Build y Push Dual (Hito 1 y 2)
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPO: ${{ secrets.ECR_REPO_URL_DB }}
-          DH_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
         run: |
+          # Construir la imagen
           docker build -t tienda-db ./db
-          # Push a ECR (Hito 2)
+          
+          # Hito 2: Subir a AWS ECR
           docker tag tienda-db $ECR_REGISTRY/$ECR_REPO:latest
           docker push $ECR_REGISTRY/$ECR_REPO:latest
-          # Push a Docker Hub (Hito 1 - Décimas)
-          docker tag tienda-db $DH_USER/tienda-db:latest
-          docker push $DH_USER/tienda-db:latest
+          
+          # Hito 1: Subir a Docker Hub con autoría
+          docker tag tienda-db ayanezz92/tienda-db:latest
+          docker push ayanezz92/tienda-db:latest
 
-      - name: Despliegue en EC2 vía SSM
+      - name: Despliegue en EC2 vía SSM (Producción)
         run: |
           aws ssm send-command \
             --instance-ids ${{ secrets.EC2_DB_INSTANCE_ID }} \
@@ -54,5 +56,5 @@ jobs:
               "docker pull ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPO_URL_DB }}:latest",
               "docker stop tienda-db || true",
               "docker rm tienda-db || true",
-              "docker run -d --name tienda-db -p 3306:3306 -v dbdata:/var/lib/mysql ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPO_URL_DB }}:latest"
+              "docker run -d --name tienda-db -p 3306:3306 -v db_data:/var/lib/mysql ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPO_URL_DB }}:latest"
             ]'
