@@ -4,9 +4,10 @@ on:
   push:
     paths:
       - 'db/**'
+  workflow_dispatch: # Permite ejecución manual desde la pestaña Actions
 
 jobs:
-  # --- NUEVO JOB PARA DOCKER HUB ---
+  # HITO 1: Subida a Docker Hub (Según imagen image_bf2111.jpg)
   build-push-dockerhub:
     runs-on: ubuntu-latest
     steps:
@@ -26,11 +27,10 @@ jobs:
           push: true
           tags: ayanezz92/tienda-db:latest
 
-  # --- JOB ORIGINAL PARA AWS ---
+  # HITO 2 y 4: AWS ECR y Despliegue en EC2
   build-push-deploy-db:
     runs-on: ubuntu-latest
-    # Opcional: Esto asegura que AWS solo se ejecute si Docker Hub fue exitoso
-    needs: build-push-dockerhub 
+    needs: build-push-dockerhub # Espera a que termine el job de Docker Hub
     steps:
       - name: Checkout código
         uses: actions/checkout@v3
