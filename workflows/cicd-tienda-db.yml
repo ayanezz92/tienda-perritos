@@ -3,13 +3,36 @@ name: CI/CD Tienda Perritos - DB
 on:
   push:
     paths:
-      - 'db/**' # Solo se activa al cambiar archivos en la carpeta db
+      - 'db/**'
 
 jobs:
-  build-push-deploy-db:
+  # --- NUEVO JOB PARA DOCKER HUB ---
+  build-push-dockerhub:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del código
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      - name: login dockerhub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: build docker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./db
+          push: true
+          tags: ayanezz92/tienda-db:latest
+
+  # --- JOB ORIGINAL PARA AWS ---
+  build-push-deploy-db:
+    runs-on: ubuntu-latest
+    # Opcional: Esto asegura que AWS solo se ejecute si Docker Hub fue exitoso
+    needs: build-push-dockerhub 
+    steps:
+      - name: Checkout código
         uses: actions/checkout@v3
 
       - name: Configurar credenciales AWS
@@ -20,33 +43,20 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login en Docker Hub (Para Décimas)
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
       - name: Login en Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build y Push Dual (Hito 1 y 2)
+      - name: Build y Push ECR
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPO: ${{ secrets.ECR_REPO_URL_DB }}
         run: |
-          # Construir la imagen
           docker build -t tienda-db ./db
-          
-          # Hito 2: Subir a AWS ECR
           docker tag tienda-db $ECR_REGISTRY/$ECR_REPO:latest
           docker push $ECR_REGISTRY/$ECR_REPO:latest
-          
-          # Hito 1: Subir a Docker Hub con autoría
-          docker tag tienda-db ayanezz92/tienda-db:latest
-          docker push ayanezz92/tienda-db:latest
 
-      - name: Despliegue en EC2 vía SSM (Producción)
+      - name: Despliegue en EC2 vía SSM
         run: |
           aws ssm send-command \
             --instance-ids ${{ secrets.EC2_DB_INSTANCE_ID }} \
